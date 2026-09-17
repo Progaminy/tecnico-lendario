@@ -30,53 +30,84 @@ O motor é independente da interface. Outros motores poderão ser ligados ao `ge
 
 ## Fonte lexical inicial
 
-A base lexical preparada para importação offline é o **Dicionário Aberto**, derivado de:
+A base lexical preparada para instalação offline é o **Dicionário Aberto**, derivado de:
 
 **FIGUEIREDO, Cândido de. _Novo Diccionário da Língua Portuguesa_. Nova edição essencialmente refundida, corrigida e copiosamente ampliada. Lisboa: Livraria Clássica Editora de A. M. Teixeira, 1913. 2 v.**
 
-A edição de 1913 está em domínio público; o Dicionário Aberto disponibiliza a sua adaptação sob **CC BY-SA 2.5 Portugal**. A licença e a proveniência devem acompanhar os dados importados.
+O Dicionário Aberto declara licença **CC BY-SA 2.5 Portugal** para o recurso digital. O corpus é mantido separado do código MIT e conserva a sua atribuição/licença.
 
 A referência intelectual e o recurso de software são coisas diferentes: a resposta pode referir Cândido de Figueiredo/obra/edição, enquanto o ficheiro de dados pode ter sido obtido através do Dicionário Aberto.
 
-## Estado atual
+## Primeiro uso
 
-A fundação do projeto está a ser construída neste repositório. O sistema **não afirmará possuir o dicionário completo nem a gramática completa enquanto esses dados não estiverem realmente importados e indexados**.
-
-O primeiro marco funcional inclui:
-
-- interface local responsiva;
-- histórico de conversas em armazenamento local;
-- edição e exclusão de conversas;
-- preferências persistentes;
-- cores semânticas;
-- roteamento técnico de pedidos;
-- consulta lexical estruturada;
-- análise morfológica inicial;
-- divisão/tokenização de frases;
-- estados de conhecimento e pendências;
-- comando para mostrar explicação e referência.
-
-## Executar localmente
-
-Requer Node.js, mas não requer pacotes externos.
+Requer Node.js 18+ e Git. O projeto não depende de pacotes npm externos.
 
 ```bash
 git clone https://github.com/Progaminy/tecnico-lendario.git
 cd tecnico-lendario
-node server.mjs
 ```
 
-Depois abra:
+Para instalar o dicionário completo localmente, execute **uma vez enquanto houver internet**:
+
+```bash
+npm run dictionary:install
+```
+
+Depois disso, o corpus fica em `vendor/dicionario-aberto/` e as consultas lexicais podem funcionar offline.
+
+Inicie a aplicação:
+
+```bash
+npm start
+```
+
+Abra:
 
 ```text
-http://localhost:4173
+http://127.0.0.1:4173
 ```
 
-O servidor é local e não necessita de internet.
+Depois de o corpus estar instalado, iniciar e utilizar a aplicação não exige internet.
+
+## O que já funciona
+
+- interface de PC inspirada em ambiente técnico tipo VS Code/Codex;
+- adaptação responsiva para telemóvel;
+- histórico local de conversas;
+- título automático por conversa;
+- editar e apagar conversa;
+- preferências persistentes, separadas do conhecimento;
+- cores semânticas por classe gramatical e estado;
+- `geral-tecnico` como roteador;
+- `pt-tecnico` separado;
+- consulta lexical estruturada;
+- consulta ao corpus offline quando instalado;
+- referência bibliográfica associada às entradas do corpus;
+- tokenização;
+- análise morfológica inicial;
+- segmentação/divisão de oração;
+- análise sintática inicial e explicitamente marcada como incompleta quando ultrapassa o conhecimento carregado;
+- pendências históricas para termos não resolvidos;
+- validação com opções e campo manual;
+- opção `Usar como preferência`;
+- comandos `Explicar` e `Mostrar referência`.
+
+## O que ainda NÃO é afirmado como pronto
+
+O projeto **não afirma possuir toda a gramática formal nem cobertura lexical moderna completa neste momento**. O corpus de Figueiredo é histórico e a gramática formal completa ainda precisa ser incorporada de forma estruturada e referenciada.
+
+O sistema foi construído para mostrar `pendente` ou `incompleto` em vez de fingir que sabe.
+
+O executor de projetos no estilo Codex também ainda não está ligado. A arquitetura já reserva esse papel ao `geral-tecnico`, sem transformar o `pt-tecnico` num executor universal.
 
 ## Dados externos
 
 O projeto aceita dependências e bases auxiliares desde que não substituam o motor por um motor linguístico completo. Recursos externos devem ter licença compatível e a origem deve ser registada em `docs/FONTES.md`.
+
+## Documentação
+
+- `docs/ARQUITETURA.md` — separação entre motores, memória, conhecimento e interface.
+- `docs/FONTES.md` — política de referência, proveniência e licenças.
 
 ## Licença do código
 
