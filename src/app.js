@@ -43,8 +43,9 @@ const els = {
 };
 
 let preferences = getPreferences();
-const engine = new GeralTecnico({ preferences });
+const conversationEngines = new Map();
 let activeId = ensureConversation();
+let processing = false;
 
 boot();
 
@@ -65,6 +66,13 @@ function ensureConversation() {
     return existing.id;
   }
   return createConversation().id;
+}
+
+function engineFor(conversationId) {
+  if (!conversationEngines.has(conversationId)) {
+    conversationEngines.set(conversationId, new GeralTecnico({ preferences }));
+  }
+  return conversationEngines.get(conversationId);
 }
 
 function bindEvents() {
@@ -101,6 +109,7 @@ function bindEvents() {
     const current = getConversation(activeId);
     if (!current) return;
     if (!confirm(`Apagar a conversa “${current.title}”?`)) return;
+    conversationEngines.delete(activeId);
     const remaining = removeConversation(activeId);
     activeId = remaining[0]?.id || createConversation().id;
     setActiveConversationId(activeId);
@@ -120,7 +129,7 @@ function bindEvents() {
       variant: els.variantPreference.value,
       showCorrections: els.showCorrections.checked
     });
-    engine.setPreferences(preferences);
+    for (const motor of conversationEngines.values()) motor.setPreferences(preferences);
   });
 
   document.querySelectorAll('.quick-tools button').forEach(button => {
@@ -128,41 +137,69 @@ function bindEvents() {
   });
 }
 
-function sendCurrent() {
+async function sendCurrent() {
+  if (processing) return;
   const text = els.input.value.trim();
   if (!text) return;
   els.input.value = '';
-  processUserText(text);
+  await processUserText(text);
 }
 
-function processUserText(text) {
-  let conversation = appendMessage(activeId, { role: 'user', text });
+async function processUserText(text) {
+  const targetConversationId = activeId;
+  let conversation = appendMessage(targetConversationId, { role: 'user', text });
   if (!conversation) return;
 
   if (conversation.messages.filter(m => m.role === 'user').length === 1 && conversation.title === 'Nova conversa') {
-    conversation = updateConversation(activeId, { title: generateTitle(text) });
+    conversation = updateConversation(targetConversationId, { title: generateTitle(text) });
   }
 
-  const { route, result } = engine.process(text, {
-    conversationId: activeId,
-    preferences
-  });
+  if (activeId === targetConversationId) {
+    renderConversationList();
+    renderActiveConversation();
+  }
 
-  registerPending(result, text);
+  processing = true;
+  els.send.disabled = true;
+  els.send.textContent = '…';
 
-  appendMessage(activeId, {
-    role: 'engine',
-    text: result.text,
-    result: serializableResult(result),
-    route
-  });
+  try {
+    const motor = engineFor(targetConversationId);
+    const { route, result } = await motor.process(text, {
+      conversationId: targetConversationId,
+      preferences
+    });
 
-  renderConversationList();
-  renderActiveConversation();
-  updateInspector(route, result);
+    registerPending(result, text, targetConversationId);
+
+    appendMessage(targetConversationId, {
+      role: 'engine',
+      text: result.text,
+      result: serializableResult(result),
+      route
+    });
+
+    if (activeId === targetConversationId) {
+      renderConversationList();
+      renderActiveConversation();
+      updateInspector(route, result);
+    }
+  } catch (error) {
+    appendMessage(targetConversationId, {
+      role: 'engine',
+      text: `Falha técnica ao processar o pedido: ${error.message || 'erro desconhecido'}`,
+      result: { engine: 'geral-tecnico', intent: 'erro', status: 'incompleto', tokens: [], references: [] }
+    });
+    if (activeId === targetConversationId) renderActiveConversation();
+  } finally {
+    processing = false;
+    els.send.disabled = false;
+    els.send.textContent = 'Enviar';
+  }
 }
 
-function runQuickCommand(command) {
+async function runQuickCommand(command) {
+  if (processing) return;
   const text = els.input.value.trim();
   const map = {
     'analise-morfologica': `Análise morfológica: ${text}`,
@@ -178,7 +215,7 @@ function runQuickCommand(command) {
     return;
   }
   if (text) els.input.value = '';
-  processUserText(value);
+  await processUserText(value);
 }
 
 function renderConversationList() {
@@ -338,7 +375,7 @@ function renderValidation(validation) {
 function validateChoice(validation, id, label) {
   if (els.savePreference.checked) {
     preferences = rememberValidatedChoice(validation.key, { id, label });
-    engine.setPreferences(preferences);
+    for (const motor of conversationEngines.values()) motor.setPreferences(preferences);
   }
   appendMessage(activeId, {
     role: 'engine',
@@ -391,14 +428,14 @@ function hydratePreferences() {
   preferences = getPreferences();
   els.variantPreference.value = preferences.variant || 'hibrido';
   els.showCorrections.checked = preferences.showCorrections !== false;
-  engine.setPreferences(preferences);
+  for (const motor of conversationEngines.values()) motor.setPreferences(preferences);
 }
 
-function registerPending(result, originalText) {
+function registerPending(result, originalText, conversationId) {
   if (!result.pending) return;
   const items = Array.isArray(result.pending) ? result.pending : [result.pending];
   for (const item of items) {
-    addPendingKnowledge({ ...item, originalText, conversationId: activeId });
+    addPendingKnowledge({ ...item, originalText, conversationId });
   }
 }
 
