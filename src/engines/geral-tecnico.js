@@ -12,13 +12,13 @@ export class GeralTecnico {
     this.pt.setPreferences(preferences);
   }
 
-  process(text, context = {}) {
+  async process(text, context = {}) {
     const route = detectIntent(text);
     let result;
 
     switch (route.intent) {
       case 'consultar_palavra':
-        result = this.pt.lookup(extractLookupTerm(text));
+        result = await this.pt.lookup(extractLookupTerm(text));
         break;
       case 'analise_morfologica':
         result = this.pt.analyseMorphology(stripCommandPrefix(text, ['análise morfológica', 'analise morfologica', 'morfologia']));
@@ -39,7 +39,7 @@ export class GeralTecnico {
         result = this.executionStub(text, context);
         break;
       default:
-        result = this.pt.interpret(text);
+        result = await this.pt.interpret(text);
         break;
     }
 
@@ -49,7 +49,7 @@ export class GeralTecnico {
     };
   }
 
-  executionStub(text) {
+  executionStub() {
     return {
       engine: 'geral-tecnico',
       intent: 'executar_instrucao',
