@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="pt">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="dark" />
+  <title>Técnico Lendário</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <div class="brand-row">
+        <div class="brand-mark">TL</div>
+        <div>
+          <strong>Técnico Lendário</strong>
+          <small>geral-tecnico + pt-tecnico</small>
+        </div>
+      </div>
+
+      <button class="primary-action" id="newConversation">+ Nova conversa</button>
+
+      <div class="sidebar-section-title">Conversas</div>
+      <div class="conversation-list" id="conversationList"></div>
+
+      <div class="sidebar-footer">
+        <button class="ghost-action" id="togglePreferences">Preferências</button>
+        <span class="engine-state"><i class="dot confirmed"></i> local</span>
+      </div>
+    </aside>
+
+    <main class="workspace">
+      <header class="workspace-header">
+        <button class="mobile-menu" id="mobileMenu" aria-label="Abrir menu">☰</button>
+        <div class="title-wrap">
+          <input id="conversationTitle" class="conversation-title" aria-label="Título da conversa" />
+          <span id="conversationMeta" class="conversation-meta"></span>
+        </div>
+        <div class="header-actions">
+          <button class="icon-action" id="renameConversation" title="Editar título">✎</button>
+          <button class="icon-action danger" id="deleteConversation" title="Apagar conversa">⌫</button>
+        </div>
+      </header>
+
+      <section class="status-strip" aria-label="Legenda semântica">
+        <span><i class="dot confirmed"></i> confirmado</span>
+        <span><i class="dot pending"></i> pendente</span>
+        <span><i class="dot conflict"></i> conflitante</span>
+        <span><i class="dot incomplete"></i> incompleto</span>
+      </section>
+
+      <section class="messages" id="messages" aria-live="polite"></section>
+
+      <section class="composer-area">
+        <div class="quick-tools">
+          <button data-command="analise-morfologica">Morfologia</button>
+          <button data-command="analise-sintatica">Sintaxe</button>
+          <button data-command="dividir-oracao">Dividir oração</button>
+          <button data-command="referencia">Referência</button>
+          <button data-command="explicar">Explicar</button>
+        </div>
+        <div class="composer">
+          <textarea id="input" rows="3" placeholder="Escreva uma instrução técnica…"></textarea>
+          <div class="composer-footer">
+            <label class="preference-toggle">
+              <input type="checkbox" id="savePreference" />
+              <span>Usar validações como preferência</span>
+            </label>
+            <button class="send-button" id="send">Enviar</button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <aside class="inspector" id="inspector">
+      <div class="inspector-title">Painel técnico</div>
+      <div class="inspector-block">
+        <span class="label">Motor</span>
+        <strong id="activeEngine">geral-tecnico</strong>
+      </div>
+      <div class="inspector-block">
+        <span class="label">Intenção</span>
+        <strong id="activeIntent">aguardando</strong>
+      </div>
+      <div class="inspector-block">
+        <span class="label">Estado</span>
+        <strong id="activeStatus" class="status-text confirmed">confirmado</strong>
+      </div>
+      <div class="inspector-block">
+        <span class="label">Categorias detectadas</span>
+        <div id="detectedCategories" class="category-stack"></div>
+      </div>
+      <div class="inspector-block" id="referencePanel" hidden>
+        <span class="label">Referência</span>
+        <div id="referenceContent" class="reference-content"></div>
+      </div>
+    </aside>
+  </div>
+
+  <dialog id="preferencesDialog" class="preferences-dialog">
+    <form method="dialog">
+      <div class="dialog-header">
+        <strong>Preferências técnicas</strong>
+        <button class="icon-action">×</button>
+      </div>
+      <label>
+        Variante principal
+        <select id="variantPreference">
+          <option value="hibrido">Português híbrido/geral</option>
+          <option value="pt-MZ">PT-MZ</option>
+          <option value="pt-PT">PT-PT</option>
+          <option value="pt-BR">PT-BR</option>
+        </select>
+      </label>
+      <label class="preference-toggle dialog-toggle">
+        <input type="checkbox" id="showCorrections" />
+        <span>Mostrar correções ortográficas seguras</span>
+      </label>
+      <button class="primary-action" id="savePreferences" value="default">Guardar</button>
+    </form>
+  </dialog>
+
+  <script type="module" src="./src/app.js"></script>
+</body>
+</html>
