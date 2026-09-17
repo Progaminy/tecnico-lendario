@@ -34,22 +34,24 @@ export class PTTecnico {
     this.preferences = preferences;
   }
 
-  lookup(term) {
+  async lookup(term) {
     const surface = String(term || '').trim();
     const key = normalizeWord(surface);
-    const entry = lexiconSeed[key];
+    const seedEntry = lexiconSeed[key];
 
-    if (entry) {
-      const result = {
-        engine: 'pt-tecnico',
-        intent: 'consultar_palavra',
-        status: entry.status || 'confirmado',
-        text: this.formatLookup(surface, entry),
-        tokens: [{ surface, category: entry.category, lemma: entry.lemma, status: entry.status }],
-        references: entry.references || [],
-        data: entry
+    if (seedEntry) return this.remember(this.lookupResult(surface, seedEntry));
+
+    const corpus = await this.lookupOfflineCorpus(surface);
+    if (corpus?.entry) {
+      const entry = {
+        lemma: corpus.entry.lemma || corpus.entry.orth || surface,
+        category: corpus.entry.category || 'desconhecido',
+        morphology: corpus.entry.grammarRaw?.length ? { classificacao_original: corpus.entry.grammarRaw.join('; ') } : {},
+        senses: (corpus.entry.senses || []).map(sense => sense.definition).filter(Boolean),
+        status: corpus.entry.status || 'confirmado',
+        references: corpus.entry.references || []
       };
-      return this.remember(result);
+      return this.remember(this.lookupResult(corpus.entry.orth || surface, entry));
     }
 
     const correction = this.findCorrection(key);
@@ -75,11 +77,15 @@ export class PTTecnico {
           allowManual: true
         };
 
+    const installNote = corpus?.notInstalled
+      ? '\nO corpus completo ainda não está instalado neste computador. Execute `npm run dictionary:install` uma vez com internet; depois as consultas funcionam offline.'
+      : '';
+
     return this.remember({
       engine: 'pt-tecnico',
       intent: 'consultar_palavra',
       status: 'pendente',
-      text: `Não encontrei “${surface}” no conhecimento lexical atualmente carregado. Não vou inventar uma definição. O item pode ser validado com fonte ou guardado como pendência por resolver.`,
+      text: `Não encontrei “${surface}” no conhecimento lexical atualmente carregado. Não vou inventar uma definição. O item pode ser validado com fonte ou guardado como pendência por resolver.${installNote}`,
       tokens: [{ surface, category: 'desconhecido', lemma: key, status: 'pendente' }],
       references: [],
       pending: { type: 'lexical', term: surface, context: surface },
@@ -102,7 +108,7 @@ export class PTTecnico {
       if (token.morphology) {
         const morph = Object.entries(token.morphology)
           .filter(([, value]) => value !== undefined && value !== null && value !== false)
-          .map(([key, value]) => `${key}: ${value}`)
+          .map(([morphKey, value]) => `${morphKey}: ${value}`)
           .join(', ');
         if (morph) pieces.push(morph);
       }
@@ -182,7 +188,7 @@ export class PTTecnico {
         `Segmento anterior ao núcleo verbal: ${subject}`,
         `Segmento a partir do núcleo verbal: ${predicate}`,
         '',
-        'Estado: incompleto. Esta primeira versão só segmenta em torno do núcleo verbal; funções sintáticas completas serão ativadas quando a gramática formal estiver carregada.'
+        'Estado: incompleto. Esta primeira fundação só segmenta em torno do núcleo verbal; funções sintáticas completas serão ativadas quando a gramática formal estiver carregada.'
       ].join('\n'),
       tokens,
       references: collectReferences(tokens),
@@ -190,7 +196,7 @@ export class PTTecnico {
     });
   }
 
-  interpret(text) {
+  async interpret(text) {
     const words = tokenize(text).filter(t => t.kind === 'word');
     if (words.length === 1) return this.lookup(words[0].surface);
 
@@ -217,7 +223,7 @@ export class PTTecnico {
     const previous = this.lastResult;
     const statusLine = `Estado atribuído: ${previous.status}.`;
     let reason = 'O resultado foi produzido pelo módulo correspondente à intenção detectada.';
-    if (previous.intent === 'consultar_palavra') reason = 'A consulta procura primeiro uma entrada lexical estruturada; se não existe, não cria definição e abre uma pendência.';
+    if (previous.intent === 'consultar_palavra') reason = 'A consulta procura primeiro o léxico mínimo interno e depois o corpus lexical offline, quando instalado. Se não encontra a entrada, não cria definição e abre uma pendência.';
     if (previous.intent === 'analise_morfologica') reason = 'Cada unidade foi tokenizada e classificada primeiro pelo léxico carregado e depois por heurísticas limitadas, marcadas como incompletas quando não têm confirmação lexical.';
     if (previous.intent === 'analise_sintatica') reason = 'A análise atual procura um núcleo verbal e segmenta a oração. Ela não afirma funções sintáticas ainda não sustentadas pela gramática carregada.';
 
@@ -293,12 +299,37 @@ export class PTTecnico {
     return { category: 'desconhecido', lemma: key, morphology: {}, status: 'pendente', references: [] };
   }
 
+  lookupResult(surface, entry) {
+    return {
+      engine: 'pt-tecnico',
+      intent: 'consultar_palavra',
+      status: entry.status || 'confirmado',
+      text: this.formatLookup(surface, entry),
+      tokens: [{ surface, category: entry.category, lemma: entry.lemma, status: entry.status }],
+      references: entry.references || [],
+      data: entry
+    };
+  }
+
   formatLookup(surface, entry) {
     const morph = Object.entries(entry.morphology || {})
-      .map(([key, value]) => `${key}: ${value}`)
+      .map(([morphKey, value]) => `${morphKey}: ${value}`)
       .join(', ');
-    const sense = entry.senses?.[0] ? `\nSentido resumido: ${entry.senses[0]}` : '';
-    return `${surface} → ${CATEGORY_LABELS[entry.category] || entry.category}\nLema: ${entry.lemma}${morph ? `\nMorfologia: ${morph}` : ''}${sense}`;
+    const senses = (entry.senses || []).slice(0, 3).map((sense, index) => `${index + 1}. ${typeof sense === 'string' ? sense : sense.definition || ''}`).filter(line => !line.endsWith('. '));
+    const senseText = senses.length ? `\nDefinição/aceções:\n${senses.join('\n')}` : '';
+    return `${surface} → ${CATEGORY_LABELS[entry.category] || entry.category}\nLema: ${entry.lemma}${morph ? `\nMorfologia: ${morph}` : ''}${senseText}`;
+  }
+
+  async lookupOfflineCorpus(term) {
+    try {
+      const response = await fetch(`/api/lexicon?term=${encodeURIComponent(term)}`);
+      if (response.ok) return response.json();
+      if (response.status === 503) return { notInstalled: true };
+      const body = await response.json().catch(() => ({}));
+      return { entry: null, candidates: body.candidates || [] };
+    } catch {
+      return { entry: null, unavailable: true };
+    }
   }
 
   findCorrection(word) {
